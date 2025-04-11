@@ -3,6 +3,8 @@ package bot
 import (
 	"time"
 
+	"github.com/ulngollm/msg-constructor/pkg/middleware"
+
 	tele "gopkg.in/telebot.v4"
 )
 
@@ -28,10 +30,10 @@ func (b *Bot) Start() {
 	b.bot.Start()
 }
 
-func (b *Bot) RegisterHandlers() {
-	b.bot.Handle("/start", b.handleStart)
+func (b *Bot) RegisterFlowHandler(endpoint string, baseHandler tele.HandlerFunc, m middleware.Middleware) {
+	b.bot.Handle(endpoint, baseHandler, m.Handle)
 }
 
-func (b *Bot) handleStart(c tele.Context) error {
-	return c.Send(c.Message())
+func (b *Bot) RegisterHandler(endpoint string, handler tele.HandlerFunc) {
+	b.bot.Handle(endpoint, handler)
 }

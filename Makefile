@@ -8,5 +8,10 @@ start:
 
 deploy:
 	ssh ${SERVER} "mkdir -p ${DEPLOY_DIR}"
-	scp fbbot ${SERVER}:${DEPLOY_DIR}
+	scp bot ${SERVER}:${DEPLOY_DIR}
 	scp .env.prod ${SERVER}:${DEPLOY_DIR}/.env
+
+
+format:
+	gofmt -s -w . && \
+	goimports -w .
