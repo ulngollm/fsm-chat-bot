@@ -40,17 +40,10 @@ func run(opts options) error {
 	pool := lflow.NewPool()
 	flowManager := lflow.New(pool)
 	stateManager := state.NewStateManager()
+	flowFinder := middleware.NewFlowFinder(flowManager)
 
-	//todo учесть что flow может быть несколько
-	// у flow может появиться метод supports
-	defaultFlowHandler := middleware.NewFlowHandler(
-		middleware.Config{
-			FlowName:     "default",
-			InitialState: stateFirst,
-		},
-		flowManager,
-		stateManager,
-	)
+	defaultFlowHandler := middleware.NewFlowHandler("default", stateManager)
+
 	//todo упросить инициализацию стейтов и хендлеров. Может map?
 	defaultFlowHandler.AddStateHandler(stateFirst, handleFirst)
 	defaultFlowHandler.AddStateHandler(stateSecond, handleSecond)
@@ -65,10 +58,18 @@ func run(opts options) error {
 	})
 
 	// todo register flow - это значит замаппить  именно flow и flowHandler
+	flowFinder.RegisterFlowHandler("default", defaultFlowHandler)
+
 	// see flow может быть инициализирован из разных мест. Например, начаться с команды или с сообщения
-	// некорректно маппить эндпоинт и flowHandler. Поменять
-	b.RegisterFlowHandler(tele.OnText, nil, defaultFlowHandler)
-	// а вот на обычный эндпоинт можно инициализировать flow
+	b.RegisterHandler(tele.OnText, func(c tele.Context) error {
+		id := c.Sender().ID
+		flow, err := flowManager.InitFlow(id, stateFirst, "default")
+		if err != nil {
+			return err
+		}
+		c.Set("flow", flow)
+		return nil
+	}, flowFinder)
 
 	b.Start()
 	return nil

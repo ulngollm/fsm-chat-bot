@@ -4,6 +4,8 @@ import (
 	tele "gopkg.in/telebot.v4"
 )
 
+//а вот эта штука уйдет в flowHandler. Потому что стейты вне flow не имеют точности
+
 type Manager struct {
 	stateHandlers map[string]tele.HandlerFunc
 }

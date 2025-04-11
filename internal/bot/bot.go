@@ -30,10 +30,6 @@ func (b *Bot) Start() {
 	b.bot.Start()
 }
 
-func (b *Bot) RegisterFlowHandler(endpoint string, baseHandler tele.HandlerFunc, m middleware.Middleware) {
+func (b *Bot) RegisterHandler(endpoint string, baseHandler tele.HandlerFunc, m middleware.Middleware) {
 	b.bot.Handle(endpoint, baseHandler, m.Handle)
-}
-
-func (b *Bot) RegisterHandler(endpoint string, handler tele.HandlerFunc) {
-	b.bot.Handle(endpoint, handler)
 }
