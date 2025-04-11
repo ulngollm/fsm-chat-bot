@@ -15,6 +15,8 @@ type FlowHandler struct {
 	stateManager *state.Manager
 }
 
+//по сути это роутер
+
 func NewFlowHandler(flowName string, initialState string, flowManager *flow.Manager, stateManager *state.Manager) *FlowHandler {
 	return &FlowHandler{flowName: flowName, initialState: initialState, flowManager: flowManager, stateManager: stateManager}
 }

@@ -48,11 +48,10 @@ func run(opts options) error {
 	defaultFlowHandler.AddStateHandler(stateLast, handleLast)
 	defaultFlowHandler.AddStateHandler(stateClosed, func(c tele.Context) error {
 		flow := getCurrentFlow(c)
-		err := flowManager.InvalidateFlow(flow)
-		if err != nil {
+		if err := flowManager.InvalidateFlow(flow); err != nil {
 			return fmt.Errorf("invalidateFlow: %w", err)
 		}
-		return c.Send("closed")
+		return c.Send(flow.Data())
 	})
 
 	b.RegisterFlowHandler(tele.OnText, nil, defaultFlowHandler)
@@ -62,7 +61,9 @@ func run(opts options) error {
 }
 
 func handleFirst(c tele.Context) error {
-	err := checkoutState(c, eventAskedFirst)
+	flow := getCurrentFlow(c)
+	flow.SetData(fmt.Sprintf("%s %s", flow.Data(), c.Message().Text))
+	err := checkoutState(flow, eventAskedFirst)
 	if err != nil {
 		return fmt.Errorf("checkoutState: %v", err)
 	}
@@ -70,7 +71,9 @@ func handleFirst(c tele.Context) error {
 }
 
 func handleSecond(c tele.Context) error {
-	err := checkoutState(c, eventAskedThird)
+	flow := getCurrentFlow(c)
+	flow.SetData(fmt.Sprintf("%s %s", flow.Data(), c.Message().Text))
+	err := checkoutState(flow, eventAskedThird)
 	if err != nil {
 		return fmt.Errorf("checkoutState: %v", err)
 	}
@@ -78,7 +81,9 @@ func handleSecond(c tele.Context) error {
 }
 
 func handlerThird(c tele.Context) error {
-	err := checkoutState(c, eventAskedSecond)
+	flow := getCurrentFlow(c)
+	flow.SetData(fmt.Sprintf("%s %s", flow.Data(), c.Message().Text))
+	err := checkoutState(flow, eventAskedSecond)
 	if err != nil {
 		return fmt.Errorf("checkoutState: %v", err)
 	}
@@ -86,15 +91,17 @@ func handlerThird(c tele.Context) error {
 }
 
 func handleLast(c tele.Context) error {
-	err := checkoutState(c, eventClose)
+	flow := getCurrentFlow(c)
+	flow.SetData(fmt.Sprintf("%s %s", flow.Data(), c.Message().Text))
+	err := checkoutState(flow, eventClose)
 	if err != nil {
 		return fmt.Errorf("checkoutState: %v", err)
 	}
 	return c.Send("finally")
 }
 
-func checkoutState(c tele.Context, e string) error {
-	flow := getCurrentFlow(c)
+func checkoutState(flow *lflow.Flow, e string) error {
+	//todo handle null flow
 	f := fsm.NewFSM(
 		stateFirst,
 		fsm.Events{
