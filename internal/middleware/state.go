@@ -8,17 +8,24 @@ import (
 	tele "gopkg.in/telebot.v4"
 )
 
+type Config struct {
+	FlowName     string
+	InitialState string
+}
+
 type FlowHandler struct {
-	flowName     string
-	initialState string
+	config Config
+
 	flowManager  *flow.Manager
 	stateManager *state.Manager
 }
 
-//по сути это роутер
+// по сути это роутер
+// у flow есть steps (state)
+// у шагов есть обработчик (строго 1-1)
 
-func NewFlowHandler(flowName string, initialState string, flowManager *flow.Manager, stateManager *state.Manager) *FlowHandler {
-	return &FlowHandler{flowName: flowName, initialState: initialState, flowManager: flowManager, stateManager: stateManager}
+func NewFlowHandler(config Config, flowManager *flow.Manager, stateManager *state.Manager) *FlowHandler {
+	return &FlowHandler{config: config, flowManager: flowManager, stateManager: stateManager}
 }
 
 // хендлеры сами переключают стейты
@@ -33,11 +40,11 @@ func (m *FlowHandler) Handle(next tele.HandlerFunc) tele.HandlerFunc {
 		if err != nil {
 			return fmt.Errorf("getFlow: %w", err)
 		}
-		if fl != nil && !fl.IsCurrentFlow(m.flowName) {
+		if fl != nil && !fl.IsCurrentFlow(m.config.flowName) {
 			return nil // тогда другой обработчик этим должен заниматься
 		}
 		if fl == nil {
-			fl, err = m.flowManager.InitFlow(flowID, m.initialState, m.flowName)
+			fl, err = m.flowManager.InitFlow(flowID, m.config.initialState, m.config.flowName)
 			if err != nil {
 				return fmt.Errorf("initFlow: %w", err)
 			}

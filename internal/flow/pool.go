@@ -4,6 +4,10 @@ type Pool struct {
 	data map[int64]*Flow
 }
 
+// это должно быть в pkg в виде интерфейсов
+// потому что должна быть возможность переопределить эту dummy thing и использовать другой пул
+// с редисом, например. или с ttl
+
 func NewPool() *Pool {
 	return &Pool{
 		data: make(map[int64]*Flow),
