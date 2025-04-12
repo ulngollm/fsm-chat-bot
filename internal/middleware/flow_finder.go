@@ -15,7 +15,7 @@ type FlowFinder struct {
 func NewFlowFinder(flowManager *lflow.Manager) *FlowFinder {
 	return &FlowFinder{
 		flowManager: flowManager,
-		handlers:    make(map[string]*FlowHandler),
+		handlers:    make(map[string]*FlowHandler), // todo map не обязательно. Можно просто массив. Но так будут только уникальные хендлеры
 	}
 }
 

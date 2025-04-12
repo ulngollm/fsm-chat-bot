@@ -7,6 +7,8 @@ import (
 //а вот эта штука уйдет в flowHandler. Потому что стейты вне flow не имеют точности
 
 type Manager struct {
+	//todo осторожно! если у разных flow есть стейты с одинаковым названием - перезапишутся.
+	// должно управляться самим flow
 	stateHandlers map[string]tele.HandlerFunc
 }
 

@@ -37,6 +37,9 @@ func run(opts options) error {
 		log.Fatalf("failed to create bot: %v", err)
 	}
 
+	// сложная инициализация. Нужно 5 струкрур инициализировать, чтобы все заработало
+	// todo упростить или инкапсулировать
+	// может просто вынести билдинг flowв другое место
 	pool := lflow.NewPool()
 	flowManager := lflow.New(pool)
 	stateManager := state.NewStateManager()
