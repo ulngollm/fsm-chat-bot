@@ -14,7 +14,7 @@ type FlowRouter struct {
 	handlers    map[flowName]FlowGroup
 }
 
-func NewFlowFinder(flowManager *lflow.Manager) *FlowRouter {
+func NewFlowRouter(flowManager *lflow.Manager) *FlowRouter {
 	return &FlowRouter{
 		flowManager: flowManager,
 		handlers:    make(map[flowName]FlowGroup),

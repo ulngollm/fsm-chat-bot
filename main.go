@@ -36,7 +36,7 @@ func run(opts options) error {
 	// todo посмотреть, как в норм проектах инициализируют такие наборы сложных вложенных структур
 	pool := lflow.NewPool()
 	flowManager := lflow.New(pool)
-	router := middleware.NewFlowFinder(flowManager)
+	router := middleware.NewFlowRouter(flowManager)
 
 	defaultFlowController := NewDefaultFlowController(flowManager)
 

@@ -18,29 +18,24 @@ go get github.com/ulngollm/middleware
 package main
 
 import (
-	"fmt"
-	lflow "github.com/ulngollm/msg-constructor/internal/flow"
-	"github.com/ulngollm/msg-constructor/internal/middleware"
-	"github.com/ulngollm/msg-constructor/internal/state"
+	"github.com/ulngollm/fsm-chat-bot/internal/flow"
+	"github.com/ulngollm/fsm-chat-bot/internal/middleware"
 )
 
 func run() {
-	pool := lflow.NewPool()
-	flowManager := lflow.New(pool)
-	stateManager := state.NewStateManager()
-	flowFinder := middleware.NewFlowFinder(flowManager)
+	pool := flow.NewPool()
+	flowManager := flow.New(pool)
+	router := middleware.NewFlowRouter(flowManager)
 
-	defaultFlowHandler := middleware.NewFlowHandler("default", stateManager)
-	flowFinder.RegisterFlowHandler("default", defaultFlowHandler)
-
-	defaultFlowHandler.AddStateHandler(stateFirst, handleFirst)
-	defaultFlowHandler.AddStateHandler(stateSecond, handleSecond)
-	defaultFlowHandler.AddStateHandler(stateThird, handlerThird)
-	defaultFlowHandler.AddStateHandler(stateLast, handleLast)
-	
-//    handler toggles state
+	g := router.Group("default") // flow name
+	g.AddHandler("opened", handle)
+	g.AddHandler("waiting", handle)
+	g.AddHandler("closed", handle)
 }
 
+func handle(c tele.Context) error {
+    return c.Send(middleware.GetCurrentFlow(c))
+}
 
 ```
 
