@@ -3,16 +3,11 @@ package bot
 import (
 	"time"
 
-	"github.com/ulngollm/msg-constructor/pkg/middleware"
-
 	tele "gopkg.in/telebot.v4"
 )
 
-type Bot struct {
-	bot *tele.Bot
-}
-
-func New(token string) (*Bot, error) {
+// todo можно ли делать такие конструкторы без структуры?
+func NewBot(token string) (*tele.Bot, error) {
 	pref := tele.Settings{
 		Token:  token,
 		Poller: &tele.LongPoller{Timeout: time.Second},
@@ -23,13 +18,5 @@ func New(token string) (*Bot, error) {
 		return nil, err
 	}
 
-	return &Bot{bot: bot}, nil
-}
-
-func (b *Bot) Start() {
-	b.bot.Start()
-}
-
-func (b *Bot) RegisterHandler(endpoint string, baseHandler tele.HandlerFunc, m middleware.Middleware) {
-	b.bot.Handle(endpoint, baseHandler, m.Handle)
+	return bot, nil
 }

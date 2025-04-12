@@ -1,16 +1,12 @@
 package main
 
 import (
-	"context"
-	"fmt"
 	"log"
 
 	"github.com/jessevdk/go-flags"
-	"github.com/looplab/fsm"
 	"github.com/ulngollm/msg-constructor/internal/bot"
 	lflow "github.com/ulngollm/msg-constructor/internal/flow"
 	"github.com/ulngollm/msg-constructor/internal/middleware"
-	"github.com/ulngollm/msg-constructor/internal/state"
 	tele "gopkg.in/telebot.v4"
 )
 
@@ -32,109 +28,28 @@ func main() {
 }
 
 func run(opts options) error {
-	b, err := bot.New(opts.BotToken)
+	b, err := bot.NewBot(opts.BotToken)
 	if err != nil {
 		log.Fatalf("failed to create bot: %v", err)
 	}
 
+	// todo посмотреть, как в норм проектах инициализируют такие наборы сложных вложенных структур
 	pool := lflow.NewPool()
 	flowManager := lflow.New(pool)
-	stateManager := state.NewStateManager()
-	flowFinder := middleware.NewFlowFinder(flowManager)
+	router := middleware.NewFlowFinder(flowManager)
 
-	defaultFlowHandler := middleware.NewFlowHandler("default", stateManager)
+	defaultFlowController := NewDefaultFlowController(flowManager)
 
-	//todo упросить инициализацию стейтов и хендлеров. Может map?
-	defaultFlowHandler.AddStateHandler(stateFirst, handleFirst)
-	defaultFlowHandler.AddStateHandler(stateSecond, handleSecond)
-	defaultFlowHandler.AddStateHandler(stateThird, handlerThird)
-	defaultFlowHandler.AddStateHandler(stateLast, handleLast)
-	defaultFlowHandler.AddStateHandler(stateClosed, func(c tele.Context) error {
-		flow := getCurrentFlow(c)
-		if err := flowManager.InvalidateFlow(flow); err != nil {
-			return fmt.Errorf("invalidateFlow: %w", err)
-		}
-		return c.Send(flow.Data())
-	})
-
-	// todo register flow - это значит замаппить  именно flow и flowHandler
-	flowFinder.RegisterFlowHandler("default", defaultFlowHandler)
+	g := router.Group("default")
+	g.AddHandler(stateFirst, defaultFlowController.handleFirst)
+	g.AddHandler(stateSecond, defaultFlowController.handleSecond)
+	g.AddHandler(stateThird, defaultFlowController.handlerThird)
+	g.AddHandler(stateLast, defaultFlowController.handleLast)
+	g.AddHandler(stateClosed, defaultFlowController.handleClose)
 
 	// see flow может быть инициализирован из разных мест. Например, начаться с команды или с сообщения
-	b.RegisterHandler(tele.OnText, func(c tele.Context) error {
-		id := c.Sender().ID
-		flow, err := flowManager.InitFlow(id, stateFirst, "default")
-		if err != nil {
-			return err
-		}
-		c.Set("flow", flow)
-		return nil
-	}, flowFinder)
+	b.Handle(tele.OnText, defaultFlowController.handleInit, router.Handle)
 
 	b.Start()
 	return nil
-}
-
-func handleFirst(c tele.Context) error {
-	flow := getCurrentFlow(c)
-	flow.SetData(fmt.Sprintf("%s %s", flow.Data(), c.Message().Text))
-	err := checkoutState(flow, eventAskedFirst)
-	if err != nil {
-		return fmt.Errorf("checkoutState: %v", err)
-	}
-	return c.Send("first")
-}
-
-func handleSecond(c tele.Context) error {
-	flow := getCurrentFlow(c)
-	flow.SetData(fmt.Sprintf("%s %s", flow.Data(), c.Message().Text))
-	err := checkoutState(flow, eventAskedThird)
-	if err != nil {
-		return fmt.Errorf("checkoutState: %v", err)
-	}
-	return c.Send("2")
-}
-
-func handlerThird(c tele.Context) error {
-	flow := getCurrentFlow(c)
-	flow.SetData(fmt.Sprintf("%s %s", flow.Data(), c.Message().Text))
-	err := checkoutState(flow, eventAskedSecond)
-	if err != nil {
-		return fmt.Errorf("checkoutState: %v", err)
-	}
-	return c.Send("3")
-}
-
-func handleLast(c tele.Context) error {
-	flow := getCurrentFlow(c)
-	flow.SetData(fmt.Sprintf("%s %s", flow.Data(), c.Message().Text))
-	err := checkoutState(flow, eventClose)
-	if err != nil {
-		return fmt.Errorf("checkoutState: %v", err)
-	}
-	return c.Send("finally")
-}
-
-func checkoutState(flow *lflow.Flow, e string) error {
-	//todo handle null flow
-	f := fsm.NewFSM(
-		stateFirst,
-		fsm.Events{
-			{Name: eventAskedFirst, Src: []string{stateFirst}, Dst: stateSecond},
-			{Name: eventAskedThird, Src: []string{stateSecond}, Dst: stateThird},
-			{Name: eventAskedSecond, Src: []string{stateThird}, Dst: stateLast},
-			{Name: eventClose, Src: []string{stateLast}, Dst: stateClosed},
-		},
-		fsm.Callbacks{},
-	)
-	f.SetState(flow.GetCurrentState())
-	if err := f.Event(context.Background(), e); err != nil {
-		return fmt.Errorf("event: %w", err)
-	}
-	flow.SetState(f.Current())
-	return nil
-}
-
-func getCurrentFlow(c tele.Context) *lflow.Flow {
-	return c.Get("flow").(*lflow.Flow)
 }

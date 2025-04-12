@@ -1,11 +1,18 @@
 package flow
 
-// flow еще могут быть разных назначений и могут быть разные fsm
+import tele "gopkg.in/telebot.v4"
+
+const cacheKey = "flow"
+
 type Flow struct {
 	id    int64
 	state string
 	key   string
 	data  string // пока строка
+}
+
+func GetFromContext(c tele.Context) *Flow {
+	return c.Get(cacheKey).(*Flow)
 }
 
 func (s *Flow) GetCurrentState() string {
@@ -21,7 +28,6 @@ func (s *Flow) InitState(state string) {
 }
 
 // метод нужен для того, чтобы сопоставлять flowHandler и flow
-// испльзовать паттерн цепочка обязанностей?
 func (s *Flow) IsCurrentFlow(key string) bool {
 	return s.key == key
 }
@@ -32,4 +38,8 @@ func (s *Flow) Data() string {
 
 func (s *Flow) SetData(data string) {
 	s.data = data
+}
+
+func (s *Flow) SaveToCtx(c tele.Context) {
+	c.Set(cacheKey, s)
 }
