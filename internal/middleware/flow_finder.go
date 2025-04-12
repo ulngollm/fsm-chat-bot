@@ -7,20 +7,40 @@ import (
 	tele "gopkg.in/telebot.v4"
 )
 
+type flowName = string
+type flowState = string
+
+type FlowGroup map[flowState]tele.HandlerFunc
+
+// если тут нет pointer, он будет копироваться или один и тот же передаваться?
+func (g FlowGroup) AddHandler(state flowState, handler tele.HandlerFunc) {
+	g[state] = handler
+}
+
+func (g FlowGroup) GetHandlerForCurrentState(currentState string) tele.HandlerFunc {
+	return g[currentState] // todo может вернуть ошибку?
+}
+
 type FlowFinder struct {
 	flowManager *lflow.Manager
-	handlers    map[string]*FlowHandler
+	handlers    map[flowName]FlowGroup
 }
 
 func NewFlowFinder(flowManager *lflow.Manager) *FlowFinder {
 	return &FlowFinder{
 		flowManager: flowManager,
-		handlers:    make(map[string]*FlowHandler), // todo map не обязательно. Можно просто массив. Но так будут только уникальные хендлеры
+		handlers:    make(map[flowName]FlowGroup),
 	}
 }
 
-func (f *FlowFinder) RegisterFlowHandler(flow string, handler *FlowHandler) {
-	f.handlers[flow] = handler
+// todo добавлять отдельно для группы
+func (f *FlowFinder) AddHandler(flow string, state string, handler tele.HandlerFunc) {
+	f.handlers[flow][state] = handler
+}
+
+func (f *FlowFinder) Group(flow string) FlowGroup {
+	f.handlers[flow] = make(FlowGroup)
+	return f.handlers[flow]
 }
 
 func (f *FlowFinder) Handle(initial tele.HandlerFunc) tele.HandlerFunc {
@@ -33,14 +53,21 @@ func (f *FlowFinder) Handle(initial tele.HandlerFunc) tele.HandlerFunc {
 		if existsFlow == nil {
 			return initial(c)
 		}
-		var found *FlowHandler
-		for flow, handler := range f.handlers {
+
+		var group FlowGroup
+		for flow, g := range f.handlers {
 			if existsFlow.IsCurrentFlow(flow) {
-				found = handler
+				group = g
 				break
 			}
 		}
+
+		state := existsFlow.GetCurrentState()
+		handler, ok := group[state]
+		if !ok {
+			return initial(c)
+		}
 		c.Set("flow", existsFlow)
-		return found.Handle(initial)(c)
+		return handler(c)
 	}
 }

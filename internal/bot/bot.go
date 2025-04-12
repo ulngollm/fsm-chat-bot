@@ -3,16 +3,15 @@ package bot
 import (
 	"time"
 
-	"github.com/ulngollm/msg-constructor/pkg/middleware"
-
 	tele "gopkg.in/telebot.v4"
 )
 
+// todo убрать эту обертку. Это никто не сможет использовать
 type Bot struct {
 	bot *tele.Bot
 }
 
-func New(token string) (*Bot, error) {
+func New(token string) (*tele.Bot, error) {
 	pref := tele.Settings{
 		Token:  token,
 		Poller: &tele.LongPoller{Timeout: time.Second},
@@ -23,13 +22,5 @@ func New(token string) (*Bot, error) {
 		return nil, err
 	}
 
-	return &Bot{bot: bot}, nil
-}
-
-func (b *Bot) Start() {
-	b.bot.Start()
-}
-
-func (b *Bot) RegisterHandler(endpoint string, baseHandler tele.HandlerFunc, m middleware.Middleware) {
-	b.bot.Handle(endpoint, baseHandler, m.Handle)
+	return bot, nil
 }

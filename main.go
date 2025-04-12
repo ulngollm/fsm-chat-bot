@@ -10,12 +10,21 @@ import (
 	"github.com/ulngollm/msg-constructor/internal/bot"
 	lflow "github.com/ulngollm/msg-constructor/internal/flow"
 	"github.com/ulngollm/msg-constructor/internal/middleware"
-	"github.com/ulngollm/msg-constructor/internal/state"
 	tele "gopkg.in/telebot.v4"
 )
 
 type options struct {
 	BotToken string `long:"token" env:"BOT_TOKEN" required:"true" description:"telegram bot token"`
+}
+
+const flowDefault string = "default"
+
+type App struct {
+	DefaultFlowController *DefaultFlowController
+}
+
+func NewApp(defaultFlowController *DefaultFlowController) *App {
+	return &App{DefaultFlowController: defaultFlowController}
 }
 
 func main() {
@@ -40,31 +49,24 @@ func run(opts options) error {
 	// сложная инициализация. Нужно 5 струкрур инициализировать, чтобы все заработало
 	// todo упростить или инкапсулировать
 	// может просто вынести билдинг flowв другое место
+	// todo разобрать, как в норм проектах инициализируют такие наборы сложных вложенных структур
+
 	pool := lflow.NewPool()
 	flowManager := lflow.New(pool)
-	stateManager := state.NewStateManager()
+
+	defaultFlowController := NewDefaultFlowController(flowManager)
 	flowFinder := middleware.NewFlowFinder(flowManager)
 
-	defaultFlowHandler := middleware.NewFlowHandler("default", stateManager)
-
-	//todo упросить инициализацию стейтов и хендлеров. Может map?
-	defaultFlowHandler.AddStateHandler(stateFirst, handleFirst)
-	defaultFlowHandler.AddStateHandler(stateSecond, handleSecond)
-	defaultFlowHandler.AddStateHandler(stateThird, handlerThird)
-	defaultFlowHandler.AddStateHandler(stateLast, handleLast)
-	defaultFlowHandler.AddStateHandler(stateClosed, func(c tele.Context) error {
-		flow := getCurrentFlow(c)
-		if err := flowManager.InvalidateFlow(flow); err != nil {
-			return fmt.Errorf("invalidateFlow: %w", err)
-		}
-		return c.Send(flow.Data())
-	})
-
-	// todo register flow - это значит замаппить  именно flow и flowHandler
-	flowFinder.RegisterFlowHandler("default", defaultFlowHandler)
+	//flowFinder.Group("flowDefault")
+	flowFinder.AddHandler(flowDefault, stateFirst, defaultFlowController.handleFirst)
+	flowFinder.AddHandler(flowDefault, stateSecond, defaultFlowController.handleSecond)
+	flowFinder.AddHandler(flowDefault, stateThird, defaultFlowController.handlerThird)
+	flowFinder.AddHandler(flowDefault, stateLast, defaultFlowController.handleLast)
+	flowFinder.AddHandler(flowDefault, stateClosed, defaultFlowController.handleClose)
 
 	// see flow может быть инициализирован из разных мест. Например, начаться с команды или с сообщения
-	b.RegisterHandler(tele.OnText, func(c tele.Context) error {
+	//b.Group() todo может это использовать?
+	b.Handle(tele.OnText, func(c tele.Context) error {
 		id := c.Sender().ID
 		flow, err := flowManager.InitFlow(id, stateFirst, "default")
 		if err != nil {
@@ -72,50 +74,10 @@ func run(opts options) error {
 		}
 		c.Set("flow", flow)
 		return nil
-	}, flowFinder)
+	}, flowFinder.Handle)
 
 	b.Start()
 	return nil
-}
-
-func handleFirst(c tele.Context) error {
-	flow := getCurrentFlow(c)
-	flow.SetData(fmt.Sprintf("%s %s", flow.Data(), c.Message().Text))
-	err := checkoutState(flow, eventAskedFirst)
-	if err != nil {
-		return fmt.Errorf("checkoutState: %v", err)
-	}
-	return c.Send("first")
-}
-
-func handleSecond(c tele.Context) error {
-	flow := getCurrentFlow(c)
-	flow.SetData(fmt.Sprintf("%s %s", flow.Data(), c.Message().Text))
-	err := checkoutState(flow, eventAskedThird)
-	if err != nil {
-		return fmt.Errorf("checkoutState: %v", err)
-	}
-	return c.Send("2")
-}
-
-func handlerThird(c tele.Context) error {
-	flow := getCurrentFlow(c)
-	flow.SetData(fmt.Sprintf("%s %s", flow.Data(), c.Message().Text))
-	err := checkoutState(flow, eventAskedSecond)
-	if err != nil {
-		return fmt.Errorf("checkoutState: %v", err)
-	}
-	return c.Send("3")
-}
-
-func handleLast(c tele.Context) error {
-	flow := getCurrentFlow(c)
-	flow.SetData(fmt.Sprintf("%s %s", flow.Data(), c.Message().Text))
-	err := checkoutState(flow, eventClose)
-	if err != nil {
-		return fmt.Errorf("checkoutState: %v", err)
-	}
-	return c.Send("finally")
 }
 
 func checkoutState(flow *lflow.Flow, e string) error {
@@ -138,6 +100,8 @@ func checkoutState(flow *lflow.Flow, e string) error {
 	return nil
 }
 
+// как бы это прокидывать в tele.Context и доставать как c.Flow...
 func getCurrentFlow(c tele.Context) *lflow.Flow {
+	tele.NewContext(c.Bot(), c.Update())
 	return c.Get("flow").(*lflow.Flow)
 }

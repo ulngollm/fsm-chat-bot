@@ -24,12 +24,17 @@ func (m *FlowHandler) AddStateHandler(state string, handler tele.HandlerFunc) {
 	m.stateManager.AddHandler(state, handler)
 }
 
+// этот метод не уникален для flowGroup
+// здесь ничего не используется от flowGroup
+// flowGroup должно быть много, а такой метод на всех один. Может вынести его в FlowHandler ?
 func (m *FlowHandler) Handle(defaultHandler tele.HandlerFunc) tele.HandlerFunc {
 	return func(c tele.Context) error {
 		fl := c.Get("flow").(*flow.Flow)
 		if fl == nil {
 			return defaultHandler(c)
 		}
+		// todo изменить механизм поиска хендлера для стейта
+		// искать в стейтах хендлера
 		handler, err := m.stateManager.GetHandlerForCurrentState(fl.GetCurrentState())
 		if err != nil {
 			return err
@@ -42,12 +47,12 @@ func (m *FlowHandler) Handle(defaultHandler tele.HandlerFunc) tele.HandlerFunc {
 }
 
 //todo вообще именно middleware должен быть один
-// и искать соответсвующий найденному flow flowHandler
-// главная задача flowHandler - вернуть tele.Handler для стейта
+// и искать соответсвующий найденному flow flowGroup
+// главная задача flowGroup - вернуть tele.Handler для стейта
 
 //итак, разделение ответственности:
-// middleware ищет нужный flowHandler по flow
-// нужный flowHandler ищет нужный обработчик для стейта
+// middleware ищет нужный flowGroup по flow
+// нужный flowGroup ищет нужный обработчик для стейта
 
 // todo только вопрос, откуда стартует этот процесс? откуда возьмется первый flow? откуда запустится?
 // что если он будет не найден - какой инициализируется?
