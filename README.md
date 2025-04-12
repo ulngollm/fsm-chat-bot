@@ -5,7 +5,7 @@ Middleware для обработки flow с fsm для `tucnak/telebot`.
 
 ## Установка
 ```bash
-go get github.com/ulngollm/middleware
+go get github.com/ulngollm/teleflow
 ```
 
 ## Features
@@ -18,8 +18,8 @@ go get github.com/ulngollm/middleware
 package main
 
 import (
-	"github.com/ulngollm/fsm-chat-bot/internal/flow"
-	"github.com/ulngollm/fsm-chat-bot/internal/middleware"
+	"github.com/ulngollm/teleflow/internal/flow"
+	"github.com/ulngollm/teleflow/internal/middleware"
 )
 
 func run() {
@@ -38,12 +38,5 @@ func handle(c tele.Context) error {
 }
 
 ```
+Пример - в [main.go](example/main.go)
 
-
-## Модификации
-Как добавить другой storage для flow...
-
-## todo
-1. format as library
-2. use interfaces for flow handling
-3. simplify initialization

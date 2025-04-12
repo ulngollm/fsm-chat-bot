@@ -4,35 +4,33 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ulngollm/msg-constructor/internal/middleware"
-
 	"github.com/looplab/fsm"
-	"github.com/ulngollm/msg-constructor/internal/flow"
+	"github.com/ulngollm/teleflow"
 	tele "gopkg.in/telebot.v4"
 )
 
 type DefaultFlowController struct {
-	manager *flow.Manager
+	manager *teleflow.FlowManager
 }
 
-func NewDefaultFlowController(manager *flow.Manager) *DefaultFlowController {
+func NewDefaultFlowController(manager *teleflow.FlowManager) *DefaultFlowController {
 	return &DefaultFlowController{manager: manager}
 }
 
 func (r *DefaultFlowController) handleInit(c tele.Context) error {
 	id := c.Sender().ID
-	f, err := r.manager.InitFlow(id, stateFirst, "default")
-	if err != nil {
+	flow := teleflow.NewSimpleFlow(id, stateFirst, "default")
+	if err := r.manager.InitFlow(flow); err != nil {
 		return err
 	}
-	f.SaveToCtx(c)
+	teleflow.SaveToCtx(c, flow)
 	return c.Send("hello! let's get started")
 }
 
 func (r *DefaultFlowController) handleFirst(c tele.Context) error {
-	f := middleware.GetCurrentFlow(c)
-	err := r.CheckoutState(f, eventAskedFirst)
-	f.SetData(fmt.Sprintf("%s %s", f.Data(), c.Message().Text))
+	flow := teleflow.GetCurrentFlow(c)
+	err := r.CheckoutState(flow, eventAskedFirst)
+	flow.SetData(c.Message().Text)
 	if err != nil {
 		return fmt.Errorf("checkoutState: %v", err)
 	}
@@ -40,7 +38,7 @@ func (r *DefaultFlowController) handleFirst(c tele.Context) error {
 }
 
 func (r *DefaultFlowController) handleSecond(c tele.Context) error {
-	f := middleware.GetCurrentFlow(c)
+	f := teleflow.GetCurrentFlow(c)
 	f.SetData(fmt.Sprintf("%s %s", f.Data(), c.Message().Text))
 	err := r.CheckoutState(f, eventAskedThird)
 	if err != nil {
@@ -50,7 +48,7 @@ func (r *DefaultFlowController) handleSecond(c tele.Context) error {
 }
 
 func (r *DefaultFlowController) handlerThird(c tele.Context) error {
-	f := middleware.GetCurrentFlow(c)
+	f := teleflow.GetCurrentFlow(c)
 	f.SetData(fmt.Sprintf("%s %s", f.Data(), c.Message().Text))
 	err := r.CheckoutState(f, eventAskedSecond)
 	if err != nil {
@@ -60,7 +58,7 @@ func (r *DefaultFlowController) handlerThird(c tele.Context) error {
 }
 
 func (r *DefaultFlowController) handleLast(c tele.Context) error {
-	f := middleware.GetCurrentFlow(c)
+	f := teleflow.GetCurrentFlow(c)
 	f.SetData(fmt.Sprintf("%s %s", f.Data(), c.Message().Text))
 	err := r.CheckoutState(f, eventClose)
 	if err != nil {
@@ -70,7 +68,7 @@ func (r *DefaultFlowController) handleLast(c tele.Context) error {
 }
 
 func (r *DefaultFlowController) handleClose(c tele.Context) error {
-	f := middleware.GetCurrentFlow(c)
+	f := teleflow.GetCurrentFlow(c)
 	f.SetData(fmt.Sprintf("%s %s", f.Data(), c.Message().Text))
 	//not require to invalidate
 	if err := r.manager.InvalidateFlow(f); err != nil {
@@ -79,8 +77,7 @@ func (r *DefaultFlowController) handleClose(c tele.Context) error {
 	return c.Send(f.Data())
 }
 
-func (r *DefaultFlowController) CheckoutState(flow *flow.Flow, e string) error {
-	//todo handle null flow
+func (r *DefaultFlowController) CheckoutState(flow teleflow.Flow, e string) error {
 	sm := fsm.NewFSM(
 		stateFirst,
 		fsm.Events{
@@ -91,7 +88,7 @@ func (r *DefaultFlowController) CheckoutState(flow *flow.Flow, e string) error {
 		},
 		fsm.Callbacks{},
 	)
-	sm.SetState(flow.GetCurrentState())
+	sm.SetState(flow.State())
 	if err := sm.Event(context.Background(), e); err != nil {
 		return fmt.Errorf("event: %w", err)
 	}

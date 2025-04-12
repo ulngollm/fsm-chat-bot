@@ -4,9 +4,7 @@ import (
 	"log"
 
 	"github.com/jessevdk/go-flags"
-	"github.com/ulngollm/msg-constructor/internal/bot"
-	lflow "github.com/ulngollm/msg-constructor/internal/flow"
-	"github.com/ulngollm/msg-constructor/internal/middleware"
+	"github.com/ulngollm/teleflow"
 	tele "gopkg.in/telebot.v4"
 )
 
@@ -28,15 +26,14 @@ func main() {
 }
 
 func run(opts options) error {
-	b, err := bot.NewBot(opts.BotToken)
+	b, err := NewBot(opts.BotToken)
 	if err != nil {
 		log.Fatalf("failed to create bot: %v", err)
 	}
 
-	// todo посмотреть, как в норм проектах инициализируют такие наборы сложных вложенных структур
-	pool := lflow.NewPool()
-	flowManager := lflow.New(pool)
-	router := middleware.NewFlowRouter(flowManager)
+	pool := teleflow.NewMemoryPool()
+	flowManager := teleflow.NewFlowManager(pool)
+	router := teleflow.NewFlowRouter(flowManager)
 
 	defaultFlowController := NewDefaultFlowController(flowManager)
 
@@ -47,8 +44,7 @@ func run(opts options) error {
 	g.AddHandler(stateLast, defaultFlowController.handleLast)
 	g.AddHandler(stateClosed, defaultFlowController.handleClose)
 
-	// see flow может быть инициализирован из разных мест. Например, начаться с команды или с сообщения
-	b.Handle(tele.OnText, defaultFlowController.handleInit, router.Handle)
+	b.Handle(tele.OnText, defaultFlowController.handleInit, router.Middleware())
 
 	b.Start()
 	return nil
