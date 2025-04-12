@@ -2,9 +2,11 @@ package main
 
 import (
 	"log"
+	"time"
 
 	"github.com/jessevdk/go-flags"
 	"github.com/ulngollm/teleflow"
+	_default "github.com/ulngollm/teleflow/example/flow/default"
 	tele "gopkg.in/telebot.v4"
 )
 
@@ -26,7 +28,11 @@ func main() {
 }
 
 func run(opts options) error {
-	b, err := NewBot(opts.BotToken)
+	pref := tele.Settings{
+		Token:  opts.BotToken,
+		Poller: &tele.LongPoller{Timeout: time.Second},
+	}
+	bot, err := tele.NewBot(pref)
 	if err != nil {
 		log.Fatalf("failed to create bot: %v", err)
 	}
@@ -35,17 +41,17 @@ func run(opts options) error {
 	flowManager := teleflow.NewFlowManager(pool)
 	router := teleflow.NewFlowRouter(flowManager)
 
-	defaultFlowController := NewDefaultFlowController(flowManager)
+	defaultFlowController := _default.NewDefaultFlowController(flowManager)
 
 	g := router.Group("default")
-	g.AddHandler(stateFirst, defaultFlowController.handleFirst)
-	g.AddHandler(stateSecond, defaultFlowController.handleSecond)
-	g.AddHandler(stateThird, defaultFlowController.handlerThird)
-	g.AddHandler(stateLast, defaultFlowController.handleLast)
-	g.AddHandler(stateClosed, defaultFlowController.handleClose)
+	g.AddHandler(_default.StateFirst, defaultFlowController.HandleFirst)
+	g.AddHandler(_default.StateSecond, defaultFlowController.HandleSecond)
+	g.AddHandler(_default.StateThird, defaultFlowController.HandlerThird)
+	g.AddHandler(_default.StateLast, defaultFlowController.HandleLast)
+	g.AddHandler(_default.StateClosed, defaultFlowController.HandleClose)
 
-	b.Handle(tele.OnText, defaultFlowController.handleInit, router.Middleware())
+	bot.Handle(tele.OnText, defaultFlowController.HandleInit, router.Middleware())
 
-	b.Start()
+	bot.Start()
 	return nil
 }
