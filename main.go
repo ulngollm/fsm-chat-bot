@@ -1,8 +1,6 @@
 package main
 
 import (
-	"context"
-	"fmt"
 	"log"
 
 	"github.com/jessevdk/go-flags"
@@ -54,9 +52,4 @@ func run(opts options) error {
 
 	b.Start()
 	return nil
-}
-
-// как бы это прокидывать в tele.Context и доставать как c.Flow...
-func getCurrentFlow(c tele.Context) *lflow.Flow {
-	return c.Get("flow").(*lflow.Flow)
 }

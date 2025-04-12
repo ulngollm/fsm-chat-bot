@@ -4,33 +4,35 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/ulngollm/msg-constructor/internal/middleware"
+
 	"github.com/looplab/fsm"
-	lflow "github.com/ulngollm/msg-constructor/internal/flow"
+	"github.com/ulngollm/msg-constructor/internal/flow"
 	tele "gopkg.in/telebot.v4"
 )
 
 type DefaultFlowController struct {
-	manager *lflow.Manager
+	manager *flow.Manager
 }
 
-func NewDefaultFlowController(manager *lflow.Manager) *DefaultFlowController {
+func NewDefaultFlowController(manager *flow.Manager) *DefaultFlowController {
 	return &DefaultFlowController{manager: manager}
 }
 
 func (r *DefaultFlowController) handleInit(c tele.Context) error {
 	id := c.Sender().ID
-	flow, err := r.manager.InitFlow(id, stateFirst, "default")
+	f, err := r.manager.InitFlow(id, stateFirst, "default")
 	if err != nil {
 		return err
 	}
-	c.Set("flow", flow)
+	f.SaveToCtx(c)
 	return c.Send("hello! let's get started")
 }
 
 func (r *DefaultFlowController) handleFirst(c tele.Context) error {
-	flow := getCurrentFlow(c)
-	err := r.CheckoutState(flow, eventAskedFirst)
-	flow.SetData(fmt.Sprintf("%s %s", flow.Data(), c.Message().Text))
+	f := middleware.GetCurrentFlow(c)
+	err := r.CheckoutState(f, eventAskedFirst)
+	f.SetData(fmt.Sprintf("%s %s", f.Data(), c.Message().Text))
 	if err != nil {
 		return fmt.Errorf("checkoutState: %v", err)
 	}
@@ -38,9 +40,9 @@ func (r *DefaultFlowController) handleFirst(c tele.Context) error {
 }
 
 func (r *DefaultFlowController) handleSecond(c tele.Context) error {
-	flow := getCurrentFlow(c)
-	flow.SetData(fmt.Sprintf("%s %s", flow.Data(), c.Message().Text))
-	err := r.CheckoutState(flow, eventAskedThird)
+	f := middleware.GetCurrentFlow(c)
+	f.SetData(fmt.Sprintf("%s %s", f.Data(), c.Message().Text))
+	err := r.CheckoutState(f, eventAskedThird)
 	if err != nil {
 		return fmt.Errorf("checkoutState: %v", err)
 	}
@@ -48,9 +50,9 @@ func (r *DefaultFlowController) handleSecond(c tele.Context) error {
 }
 
 func (r *DefaultFlowController) handlerThird(c tele.Context) error {
-	flow := getCurrentFlow(c)
-	flow.SetData(fmt.Sprintf("%s %s", flow.Data(), c.Message().Text))
-	err := r.CheckoutState(flow, eventAskedSecond)
+	f := middleware.GetCurrentFlow(c)
+	f.SetData(fmt.Sprintf("%s %s", f.Data(), c.Message().Text))
+	err := r.CheckoutState(f, eventAskedSecond)
 	if err != nil {
 		return fmt.Errorf("checkoutState: %v", err)
 	}
@@ -58,9 +60,9 @@ func (r *DefaultFlowController) handlerThird(c tele.Context) error {
 }
 
 func (r *DefaultFlowController) handleLast(c tele.Context) error {
-	flow := getCurrentFlow(c)
-	flow.SetData(fmt.Sprintf("%s %s", flow.Data(), c.Message().Text))
-	err := r.CheckoutState(flow, eventClose)
+	f := middleware.GetCurrentFlow(c)
+	f.SetData(fmt.Sprintf("%s %s", f.Data(), c.Message().Text))
+	err := r.CheckoutState(f, eventClose)
 	if err != nil {
 		return fmt.Errorf("checkoutState: %v", err)
 	}
@@ -68,18 +70,18 @@ func (r *DefaultFlowController) handleLast(c tele.Context) error {
 }
 
 func (r *DefaultFlowController) handleClose(c tele.Context) error {
-	flow := getCurrentFlow(c)
-	flow.SetData(fmt.Sprintf("%s %s", flow.Data(), c.Message().Text))
+	f := middleware.GetCurrentFlow(c)
+	f.SetData(fmt.Sprintf("%s %s", f.Data(), c.Message().Text))
 	//not require to invalidate
-	if err := r.manager.InvalidateFlow(flow); err != nil {
+	if err := r.manager.InvalidateFlow(f); err != nil {
 		return fmt.Errorf("invalidateFlow: %w", err)
 	}
-	return c.Send(flow.Data())
+	return c.Send(f.Data())
 }
 
-func (r *DefaultFlowController) CheckoutState(flow *lflow.Flow, e string) error {
+func (r *DefaultFlowController) CheckoutState(flow *flow.Flow, e string) error {
 	//todo handle null flow
-	f := fsm.NewFSM(
+	sm := fsm.NewFSM(
 		stateFirst,
 		fsm.Events{
 			{Name: eventAskedFirst, Src: []string{stateFirst}, Dst: stateSecond},
@@ -89,10 +91,10 @@ func (r *DefaultFlowController) CheckoutState(flow *lflow.Flow, e string) error 
 		},
 		fsm.Callbacks{},
 	)
-	f.SetState(flow.GetCurrentState())
-	if err := f.Event(context.Background(), e); err != nil {
+	sm.SetState(flow.GetCurrentState())
+	if err := sm.Event(context.Background(), e); err != nil {
 		return fmt.Errorf("event: %w", err)
 	}
-	flow.SetState(f.Current())
+	flow.SetState(sm.Current())
 	return nil
 }

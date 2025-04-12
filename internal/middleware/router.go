@@ -51,7 +51,7 @@ func (f *FlowRouter) Handle(initial tele.HandlerFunc) tele.HandlerFunc {
 			return initial(c)
 		}
 
-		c.Set("flow", existsFlow) // todo extract to helper
+		existsFlow.SaveToCtx(c)
 		return handler(c)
 	}
 }
