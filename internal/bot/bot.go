@@ -6,12 +6,8 @@ import (
 	tele "gopkg.in/telebot.v4"
 )
 
-// todo убрать эту обертку. Это никто не сможет использовать
-type Bot struct {
-	bot *tele.Bot
-}
-
-func New(token string) (*tele.Bot, error) {
+// todo можно ли делать такие конструкторы без структуры?
+func NewBot(token string) (*tele.Bot, error) {
 	pref := tele.Settings{
 		Token:  token,
 		Poller: &tele.LongPoller{Timeout: time.Second},

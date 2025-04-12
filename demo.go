@@ -3,71 +3,74 @@ package main
 import (
 	"context"
 	"fmt"
+
 	"github.com/looplab/fsm"
 	lflow "github.com/ulngollm/msg-constructor/internal/flow"
 	tele "gopkg.in/telebot.v4"
 )
 
-//todo как должен выглядеть идеальный интерфейс:
-
-type FlowController interface {
-	CheckoutState(flow *lflow.Flow, e string) error
-}
-
 type DefaultFlowController struct {
-	//	states можно хранить извне. Контроллер же ничего ен значет про роуты?
 	manager *lflow.Manager
-	//	flow manager
 }
 
 func NewDefaultFlowController(manager *lflow.Manager) *DefaultFlowController {
 	return &DefaultFlowController{manager: manager}
 }
 
+func (r *DefaultFlowController) handleInit(c tele.Context) error {
+	id := c.Sender().ID
+	flow, err := r.manager.InitFlow(id, stateFirst, "default")
+	if err != nil {
+		return err
+	}
+	c.Set("flow", flow)
+	return c.Send("hello! let's get started")
+}
+
 func (r *DefaultFlowController) handleFirst(c tele.Context) error {
 	flow := getCurrentFlow(c)
-	err := checkoutState(flow, eventAskedFirst)
+	err := r.CheckoutState(flow, eventAskedFirst)
+	flow.SetData(fmt.Sprintf("%s %s", flow.Data(), c.Message().Text))
 	if err != nil {
 		return fmt.Errorf("checkoutState: %v", err)
 	}
-	return c.Send("first")
+	return c.Send("got it! Next")
 }
 
 func (r *DefaultFlowController) handleSecond(c tele.Context) error {
 	flow := getCurrentFlow(c)
 	flow.SetData(fmt.Sprintf("%s %s", flow.Data(), c.Message().Text))
-	err := checkoutState(flow, eventAskedThird)
+	err := r.CheckoutState(flow, eventAskedThird)
 	if err != nil {
 		return fmt.Errorf("checkoutState: %v", err)
 	}
-	return c.Send("2")
+	return c.Send("next")
 }
 
 func (r *DefaultFlowController) handlerThird(c tele.Context) error {
 	flow := getCurrentFlow(c)
 	flow.SetData(fmt.Sprintf("%s %s", flow.Data(), c.Message().Text))
-	err := checkoutState(flow, eventAskedSecond)
+	err := r.CheckoutState(flow, eventAskedSecond)
 	if err != nil {
 		return fmt.Errorf("checkoutState: %v", err)
 	}
-	return c.Send("3")
+	return c.Send("next")
 }
 
 func (r *DefaultFlowController) handleLast(c tele.Context) error {
 	flow := getCurrentFlow(c)
 	flow.SetData(fmt.Sprintf("%s %s", flow.Data(), c.Message().Text))
-	err := checkoutState(flow, eventClose)
+	err := r.CheckoutState(flow, eventClose)
 	if err != nil {
 		return fmt.Errorf("checkoutState: %v", err)
 	}
-	return c.Send("finally")
+	return c.Send("and final")
 }
 
 func (r *DefaultFlowController) handleClose(c tele.Context) error {
-	// todo чтобы не надо было доставать извне до flowManager, нужно
-	// сделать хендлеры методами flow handler-a
-	// flowManager инжектить в flowHandler
 	flow := getCurrentFlow(c)
+	flow.SetData(fmt.Sprintf("%s %s", flow.Data(), c.Message().Text))
+	//not require to invalidate
 	if err := r.manager.InvalidateFlow(flow); err != nil {
 		return fmt.Errorf("invalidateFlow: %w", err)
 	}
